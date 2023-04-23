@@ -151,7 +151,7 @@ fi
 
 # delay until GPIO pin state gets stable
 counter=0
-while [ $counter -lt 5 ]; do  # increase this value if it needs more time
+while [ $counter -lt 25 ]; do  # increase this value if it needs more time
   if [ $(gpio -g read $HALT_PIN) == '1' ] ; then
     counter=$(($counter+1))
   else
@@ -184,26 +184,36 @@ gpio -g mode $SYSUP_PIN in
 
 # wait for GPIO-4 (BCM naming) falling, or alarm 2 (shutdown)
 log 'Pending for incoming shutdown command...'
-gpio -g wfi $HALT_PIN falling
-reason=$(i2c_read 0x01 $I2C_MC_ADDRESS $I2C_ACTION_REASON)
-if [ "$reason" == $REASON_ALARM2 ]; then
-  log 'Shutting down system because scheduled shutdown is due.'
-elif [ "$reason" == $REASON_CLICK ]; then
-  log "Shutting down system because button is clicked or GPIO-$HALT_PIN is pulled down."
-elif [ "$reason" == $REASON_LOW_VOLTAGE ]; then
-  vin=$(get_input_voltage)
-  vlow=$(get_low_voltage_threshold)
-  log "Shutting down system because input voltge is too low: Vin=${vin}V, Vlow=${vlow}"
-elif [ "$reason" == $REASON_OVER_TEMPERATURE ]; then
-  log 'Shutting down system because over temperature.'
-  log "$(get_temperature)"
-elif [ "$reason" == $REASON_BELOW_TEMPERATURE ]; then
-  log 'Shutting down system because below temperature.'
-  log "$(get_temperature)"
-else
-  log "Unknown/incorrect shutdown reason: $reason"
-fi
-
+counter=0
+while [ $counter -lt 100 ]; do  # increase this value if it needs more time
+  gpio -g wfi $HALT_PIN falling
+  counter=$(($counter+1))
+  
+	reason=$(i2c_read 0x01 $I2C_MC_ADDRESS $I2C_ACTION_REASON)
+	if [ "$reason" == $REASON_ALARM2 ]; then
+	  log 'Shutting down system because scheduled shutdown is due.'
+	  break
+	elif [ "$reason" == $REASON_CLICK ]; then
+	  log "Shut down signal because button is clicked or GPIO-$HALT_PIN is pulled down."
+	elif [ "$reason" == $REASON_LOW_VOLTAGE ]; then
+	  vin=$(get_input_voltage)
+	  vlow=$(get_low_voltage_threshold)
+	  log "Shutting down system because input voltge is too low: Vin=${vin}V, Vlow=${vlow}"
+	  break
+	elif [ "$reason" == $REASON_OVER_TEMPERATURE ]; then
+	  log 'Shutting down system because over temperature.'
+	  break
+	  log "$(get_temperature)"
+	elif [ "$reason" == $REASON_BELOW_TEMPERATURE ]; then
+	  log 'Shutting down system because below temperature.'
+	  log "$(get_temperature)"
+	  break
+	else
+	  log "Unknown/incorrect shutdown reason: $reason"
+	fi
+	vin=$(get_input_voltage)
+	log "System will not shut down (custom daemon.sh) Vin=${vin} counter= ${counter}"
+done
 # run beforeShutdown.sh
 "$cur_dir/beforeShutdown.sh" >> "$cur_dir/wittyPi.log" 2>&1
 
