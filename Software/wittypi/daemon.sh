@@ -185,7 +185,7 @@ gpio -g mode $SYSUP_PIN in
 # wait for GPIO-4 (BCM naming) falling, or alarm 2 (shutdown)
 log 'Pending for incoming shutdown command...'
 counter=0
-while [ $counter -lt 100 ]; do  # increase this value if it needs more time
+while [ 1 ]; do  # increase this value if it needs more time
   gpio -g wfi $HALT_PIN falling
   counter=$(($counter+1))
   
