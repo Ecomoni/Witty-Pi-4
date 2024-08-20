@@ -8,12 +8,18 @@
 
 # define cli flag default values
 installUWI=true
+update=false
+directory="wittypi"
 
 # parse cli flags
 while [ "${1:-}" != "" ]; do
   case "$1" in
     "--no-uwi")
       installUWI=false
+      ;;
+    "--update")
+      update=true
+      directory="wittypi_new"
       ;;
   esac
   shift
@@ -27,7 +33,7 @@ if [ "$(id -u)" != 0 ]; then
 fi
 
 # target directory
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/wittypi"
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/$directory"
 
 # error counter
 ERR=0
@@ -139,28 +145,29 @@ fi
 # install wittyPi
 if [ $ERR -eq 0 ]; then
   echo '>>> Install wittypi'
-  if [ -d "wittypi" ]; then
-    echo 'Seems wittypi is installed already, skip this step.'
-  else
-    wget https://www.uugear.com/repo/WittyPi4/LATEST -O wittyPi.zip || ((ERR++))
-    unzip wittyPi.zip -d wittypi || ((ERR++))
-    cd wittypi
-    chmod +x wittyPi.sh
-    chmod +x daemon.sh
-    chmod +x runScript.sh
-    chmod +x beforeScript.sh
-    chmod +x afterStartup.sh
-    chmod +x beforeShutdown.sh
-    sed -e "s#/home/pi/wittypi#$DIR#g" init.sh >/etc/init.d/wittypi
-    chmod +x /etc/init.d/wittypi
-    update-rc.d wittypi defaults || ((ERR++))
-    touch wittyPi.log
-    touch schedule.log
-    cd ..
-    chown -R $SUDO_USER:$(id -g -n $SUDO_USER) wittypi || ((ERR++))
-    sleep 2
-    rm wittyPi.zip
+  wget https://github.com/Ecomoni/Witty-Pi-4/releases/latest/download/wittypi-ecomoni.zip -O wittyPi.zip || ((ERR++))
+  unzip wittyPi.zip -d $directory || ((ERR++))
+  cd $directory
+  chmod +x wittyPi.sh
+  chmod +x daemon.sh
+  chmod +x runScript.sh
+  chmod +x beforeScript.sh
+  chmod +x afterStartup.sh
+  chmod +x beforeShutdown.sh
+  sed -e "s#/home/pi/wittypi#$DIR#g" init.sh >/etc/init.d/wittypi
+  chmod +x /etc/init.d/wittypi
+  update-rc.d wittypi defaults || ((ERR++))
+  touch wittyPi.log
+  touch schedule.log
+  cd ..
+  chown -R $SUDO_USER:$(id -g -n $SUDO_USER) wittypi || ((ERR++))
+  sleep 2
+  if [ "$update" == true ]; then
+    rm -rf wittypi_old
+    mv wittypi wittypi_old
+    mv wittypi_new wittypi
   fi
+  rm wittyPi.zip
 fi
 
 # install UUGear Web Interface
