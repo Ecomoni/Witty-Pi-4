@@ -8,12 +8,16 @@
 
 # define cli flag default values
 installUWI=true
+update=false
 
 # parse cli flags
 while [ "${1:-}" != "" ]; do
   case "$1" in
     "--no-uwi")
       installUWI=false
+      ;;
+    "--update")
+      update=true
       ;;
   esac
   shift
@@ -72,13 +76,12 @@ else
   echo 'Seems i2c1 parameter already set, skip this step.'
 fi
 
-i2c_arm=$(grep 'dtparam=i2c_arm=on' ${BOOT_CONFIG_FILE})
-i2c_arm=$(echo -e "$i2c_arm" | sed -e 's/^[[:space:]]*//')
-if [[ -z "$i2c_arm" || "$i2c_arm" == "#"* ]]; then
-  echo 'dtparam=i2c_arm=on' >> ${BOOT_CONFIG_FILE}
-else
+if grep -qE '^[[:space:]]*dtparam=i2c_arm=on([[:space:]]*(#.*)?)?$' "$BOOT_CONFIG_FILE"; then
   echo 'Seems i2c_arm parameter already set, skip this step.'
+else
+  echo 'dtparam=i2c_arm=on' >> "$BOOT_CONFIG_FILE"
 fi
+
 
 miniuart=$(grep 'dtoverlay=miniuart-bt' ${BOOT_CONFIG_FILE})
 miniuart=$(echo -e "$miniuart" | sed -e 's/^[[:space:]]*//')
@@ -139,28 +142,34 @@ fi
 # install wittyPi
 if [ $ERR -eq 0 ]; then
   echo '>>> Install wittypi'
-  if [ -d "wittypi" ]; then
-    echo 'Seems wittypi is installed already, skip this step.'
+  wget https://github.com/Ecomoni/Witty-Pi-4/releases/latest/download/wittypi-ecomoni.zip -O wittyPi.zip || ((ERR++))
+  if [ "$update" = true ]; then
+    unzip wittyPi.zip -d "${DIR}_new" || ((ERR++))
+    cd "${DIR}_new"
   else
-    wget https://www.uugear.com/repo/WittyPi4/LATEST -O wittyPi.zip || ((ERR++))
-    unzip wittyPi.zip -d wittypi || ((ERR++))
-    cd wittypi
-    chmod +x wittyPi.sh
-    chmod +x daemon.sh
-    chmod +x runScript.sh
-    chmod +x beforeScript.sh
-    chmod +x afterStartup.sh
-    chmod +x beforeShutdown.sh
-    sed -e "s#/home/pi/wittypi#$DIR#g" init.sh >/etc/init.d/wittypi
-    chmod +x /etc/init.d/wittypi
-    update-rc.d wittypi defaults || ((ERR++))
-    touch wittyPi.log
-    touch schedule.log
-    cd ..
-    chown -R $SUDO_USER:$(id -g -n $SUDO_USER) wittypi || ((ERR++))
-    sleep 2
-    rm wittyPi.zip
+    unzip wittyPi.zip -d $DIR || ((ERR++))
+    cd $DIR
   fi
+  chmod +x wittyPi.sh
+  chmod +x daemon.sh
+  chmod +x runScript.sh
+  chmod +x beforeScript.sh
+  chmod +x afterStartup.sh
+  chmod +x beforeShutdown.sh
+  sed -e "s#/home/pi/wittypi#$DIR#g" init.sh >/etc/init.d/wittypi
+  chmod +x /etc/init.d/wittypi
+  update-rc.d wittypi defaults || ((ERR++))
+  touch wittyPi.log
+  touch schedule.log
+  cd ..
+  chown -R $SUDO_USER:$(id -g -n $SUDO_USER) wittypi || ((ERR++))
+  sleep 2
+  if [ "$ERR" = 0 && "$update" = true ]; then
+    rm -rf "${DIR}_old"
+    mv wittypi "${DIR}_old"
+    mv "${DIR}_new" $DIR
+  fi
+  rm wittyPi.zip
 fi
 
 # install UUGear Web Interface
