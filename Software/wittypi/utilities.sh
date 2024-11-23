@@ -9,7 +9,7 @@ export LC_ALL=en_GB.UTF-8
 if [ -z ${I2C_MC_ADDRESS+x} ]; then
   readonly I2C_MC_ADDRESS=0x08
 
-  readonly I2C_BUS=0
+  readonly I2C_BUS=1
 
   readonly I2C_ID=0
   readonly I2C_VOLTAGE_IN_I=1
